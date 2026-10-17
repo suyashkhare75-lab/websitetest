@@ -1,0 +1,13 @@
+<!doctype html><html lang="hi"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Weekly Test</title><style>{{ css|safe }}</style></head>
+<body><main class="box"><h1>Weekly Test</h1>
+{% if err %}<p class="err">{{ err }}</p>{% endif %}
+{% if not logged %}
+<form method="post" action="/login"><input type="password" name="password" placeholder="Password" required><button>Login</button></form>
+{% else %}
+{% for s in subs %}
+  {% if s.done %}<div class="sub off"><span>{{ s.name }}</span><em>Ho chuka</em></div>
+  {% else %}<a class="sub" href="/test/{{ s.name|urlencode }}"><span>{{ s.name }}</span><em>{{ 'Chal raha' if s.live else 'Shuru karo' }}</em></a>{% endif %}
+{% else %}<p>Abhi koi paper nahi hai.</p>{% endfor %}
+<p class="note">Paper khulne ke baad tab ya app badalne, page band karne ya screenshot ki koshish par turant report jayegi. Har subject sirf ek baar, time limit ke andar.</p>
+{% endif %}</main></body></html>

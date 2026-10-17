@@ -1,0 +1,43 @@
+<!doctype html><html lang="hi"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>{{ sub }}</title><style>{{ css|safe }}</style></head>
+<body>
+<div class="bar"><b>{{ sub }}</b><span id="tm"></span><button id="fin">Finish</button></div>
+<div id="pages"></div>
+<script>
+const SUB={{ sub|tojson }},N={{ pages }};let left={{ remaining }},on=true,ovl=null,armed=false;
+const $=s=>document.querySelector(s);
+const post=(u,b)=>fetch(u,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(b)}).then(r=>r.json());
+const fmt=s=>`${Math.floor(s/60)}:${String(s%60).padStart(2,'0')}`;
+
+function end(msg){on=false;document.body.innerHTML=`<main class=box><h1>${msg}</h1><p><a href="/">Wapas jao</a></p></main>`}
+
+function warn(){ if(ovl)return; ovl=document.createElement('div'); ovl.className='overlay';
+  ovl.innerHTML='<h1>Warning</h1><p>Tab ya app badalna note kar liya gaya hai.<br>Ab tak: <b id=wn>...</b> baar.</p><button>Samajh gayi</button>';
+  ovl.querySelector('button').onclick=()=>{ovl.remove();ovl=null;document.body.classList.remove('hid')};document.body.appendChild(ovl)}
+
+function trip(type){ if(!on)return; document.body.classList.add('hid'); warn();
+  post('/api/event',{sub:SUB,type}).then(j=>{const w=$('#wn');w&&(w.textContent=j.n);if(j.done)end('Test band ho gaya')}).catch(()=>{})}
+
+document.addEventListener('visibilitychange',()=>document.hidden&&trip('tab'));
+addEventListener('blur',()=>trip('blur'));
+addEventListener('pagehide',()=>on&&navigator.sendBeacon('/api/event',new Blob([JSON.stringify({sub:SUB,type:'close'})],{type:'application/json'})));
+let W=innerWidth,H=innerHeight;
+addEventListener('resize',()=>{if(Math.abs(innerWidth-W)>60||Math.abs(innerHeight-H)>H*.25)trip('resize');W=innerWidth;H=innerHeight});
+['contextmenu','copy','cut','selectstart','dragstart'].forEach(e=>document.addEventListener(e,x=>{x.preventDefault();e==='copy'&&trip('key')}));
+document.addEventListener('keydown',e=>{const k=e.key.toLowerCase();
+  if(((e.ctrlKey||e.metaKey)&&['p','s','c','a','u'].includes(k))||k==='printscreen'||k==='f12'){e.preventDefault();trip('key')}});
+document.addEventListener('keyup',e=>e.key==='PrintScreen'&&trip('key'));
+
+function wireFinish(b,label){b.onclick=async()=>{ if(!armed){armed=true;b.textContent='Pakka? Dobara dabao';setTimeout(()=>{armed=false;b.textContent=label},4000);return}
+  await post('/api/done',{sub:SUB}).catch(()=>{});end('Test khatam ho gaya')}}
+wireFinish($('#fin'),'Finish');
+
+setInterval(()=>{if(!on)return;left--;$('#tm')&&($('#tm').textContent=fmt(Math.max(0,left)));if(left<=0){post('/api/done',{sub:SUB});end('Time khatam')}},1000);
+setInterval(()=>on&&post('/api/ping',{sub:SUB}).then(j=>{if(j.done)end('Test band ho gaya');else if(j.remaining!=null)left=j.remaining}).catch(()=>{}),10000);
+
+(async()=>{ for(let i=0;i<N&&on;i++){
+  const r=await fetch(`/page/${encodeURIComponent(SUB)}/${i}`);if(!r.ok)break;
+  const bmp=await createImageBitmap(await r.blob());const c=document.createElement('canvas');c.width=bmp.width;c.height=bmp.height;
+  c.getContext('2d').drawImage(bmp,0,0);$('#pages').appendChild(c)}
+  if(on){const b=document.createElement('button');b.textContent='Finish test';b.style.cssText='margin:10px 8px 40px;width:calc(100% - 16px)';wireFinish(b,'Finish test');$('#pages').after(b)}})();
+</script></body></html>
