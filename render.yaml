@@ -1,0 +1,15 @@
+services:
+  - type: web
+    name: student-test-portal
+    runtime: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn app:app
+    healthCheckPath: /healthz
+    plan: free
+    envVars:
+      - key: SECRET_KEY
+        generateValue: true
+      - key: STUDENT_PIN
+        sync: false
+      - key: PAPERS_DIR
+        value: papers
