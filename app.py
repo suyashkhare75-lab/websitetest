@@ -25,7 +25,7 @@ app.permanent_session_lifetime = timedelta(hours=12)
 app.config.update(SESSION_COOKIE_HTTPONLY=True, SESSION_COOKIE_SAMESITE="Lax")
 
 PASSWORD = os.environ.get("STUDENT_PASSWORD")
-if not PASSWORD: raise RuntimeError("Render ke Environment mein STUDENT_PASSWORD set karo")
+if not PASSWORD: raise RuntimeError("Set STUDENT_PASSWORD in the Render Environment tab")
 NAME = os.environ.get("STUDENT_NAME", "Student")
 TG_TOKEN, TG_CHAT = os.environ.get("TG_TOKEN"), os.environ.get("TG_CHAT_ID")
 DURATION = int(os.environ.get("TEST_MINUTES", "60")) * 60      # har subject ka time
@@ -44,9 +44,9 @@ try:   # restart ke baad bhi attempt yaad rahe
 except Exception:
     T = {}
 
-LABEL = {"tab": "Tab ya app badla", "blur": "Screen se focus hata (app switch / popup)",
-         "close": "Page band ya refresh kiya", "resize": "Screen size badla (split-screen / floating app / rotate)",
-         "key": "Copy / print / save / screenshot ki koshish"}
+LABEL = {"tab": "Switched tab or app", "blur": "Screen lost focus (app switch / popup)",
+         "close": "Closed or refreshed the page", "resize": "Screen size changed (split-screen / floating app / rotate)",
+         "key": "Tried copy / print / save / screenshot"}
 
 def notify(text):
     if not (TG_TOKEN and TG_CHAT): return
@@ -71,16 +71,16 @@ def need_login(f):
         return f(*a, **k) if session.get("ok") else (jsonify(error="login"), 401)
     return w
 
-def finish(sub, why="✅ Test khatam"):
+def finish(sub, why="✅ Test finished"):
     t = T.get(sub)
     if not t or t["done"]: return
     t["done"] = True; save()
-    notify(f"{why}\nSubject: {sub}\nTime: {int((time.time() - t['start']) / 60)} min\nTotal violations: {t['n']}")
+    notify(f"{why}\nSubject: {sub}\nTime taken: {int((time.time() - t['start']) / 60)} min\nTotal violations: {t['n']}")
 
 def live(sub):
     t = T.get(sub)
     if t and not t["done"] and time.time() - t["start"] > DURATION:
-        finish(sub, "⏰ Time khatam")
+        finish(sub, "⏰ Time's up")
     return t
 
 @app.route("/")
@@ -97,20 +97,20 @@ def login():
         session.permanent = True; session["ok"] = True
         return redirect("/")
     time.sleep(1.5)
-    return redirect("/?e=Galat password")
+    return redirect("/?e=Wrong password")
 
 @app.route("/test/<sub>")
 def test(sub):
     if not session.get("ok"): return redirect("/")
     n_pages = len(pymupdf.open(pdf_path(sub)))
     t = live(sub)
-    if t and t["done"]: return redirect("/?e=Ye subject ho chuka hai")
+    if t and t["done"]: return redirect("/?e=This subject is already completed")
     if not t:
         T[sub] = {"start": time.time(), "last": time.time(), "n": 0, "ev": 0, "done": False, "lost": False}
         save()
-        notify(f"📄 Paper khola: {sub}")
+        notify(f"📄 Paper opened: {sub}")
     else:
-        notify(f"📄 Paper wapas khola: {sub}\nAb tak violations: {t['n']}")
+        notify(f"📄 Paper reopened: {sub}\nViolations so far: {t['n']}")
     remaining = int(DURATION - (time.time() - T[sub]["start"]))
     return render_template("test.html", sub=sub, pages=n_pages, remaining=remaining)
 
@@ -152,7 +152,7 @@ def ping():
     if not t: return jsonify(done=True)
     t["last"] = time.time()
     if t["lost"] and not t["done"]:
-        t["lost"] = False; notify(f"🟢 Wapas online aa gayi ({sub})")
+        t["lost"] = False; notify(f"🟢 Back online ({sub})")
     return jsonify(done=t["done"], remaining=int(DURATION - (time.time() - t["start"])))
 
 @app.post("/api/done")
@@ -171,7 +171,7 @@ def watchdog():   # 30 sec se ping nahi = app band / background / phone lock
             live(sub)
             if not t["done"] and not t["lost"] and time.time() - t["last"] > 30:
                 t["lost"] = True
-                notify(f"🔴 Page se connection toot gaya (app band ya background)\nSubject: {sub}\nTotal violations: {t['n']}")
+                notify(f"🔴 Connection lost (app closed or in background)\nSubject: {sub}\nTotal violations: {t['n']}")
 
 def keepalive():  # Render free instance ko sone se rokta hai
     url = os.environ.get("RENDER_EXTERNAL_URL")
